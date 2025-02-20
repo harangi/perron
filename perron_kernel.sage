@@ -1,3 +1,7 @@
+# supplementary code for the paper: 
+# "The least balanced graphs and trees" by Péter Csikvári, Viktor Harangi
+# link:  https://arxiv.org/abs/2502.13939
+
 import numpy as np
 from numpy.linalg import eigh,inv
 from sage.graphs.trees import TreeIterator
@@ -152,7 +156,34 @@ def find_r(fun,start,step=1./16,prec=0.5^20):
 def check_coeffs(pol,t0=0):
     trans_pol=pol if t0==0 else pol(t+t0)
     return all(co>=0 for co in trans_pol.coefficients())
-    
+
+# for a polynomial pol, checks whether pol>0 on the interval (t0,t1)    
+def is_positive_pol(pol,t0,t1):
+    if pol(0.5*(t0+t1))<=0:
+        return False
+    polR=0.+pol
+    rts=polR.roots()
+    for rt in rts:
+        if rt[0]>t0 and rt[0]<t1 and rt[1]%2:
+            return False
+    return True
+
+# checks whether a rational function is positive on (t0,t1)
+def is_positive(rat,t0,t1):
+    f=rat.numerator()
+    g=rat.denominator()
+    if f(0.5*(t0+t1))<0:
+        f=-f
+        g=-g
+    return is_positive_pol(f,t0,t1) and is_positive_pol(g,t0,t1)
+
+# checks whether a rational function is monotone increasing on (t0,t1)
+def is_monotone(rat,t0,t1):
+    f=rat.numerator()
+    g=rat.denominator()
+    pol=f.derivative()*g-f*g.derivative()
+    return is_positive_pol(pol,t0,t1)
+
 def true_minimum(num,denum,t0,delta=2.):
     fun=lambda x: num(x)/denum(x)
     val0=fun(t0)
@@ -437,48 +468,132 @@ class Kernel:
                     fig+=point([(self.las[i1],self.gas[i1])], color='black')
                 fig.show()
 
-    def x_H(self,v,la):
-        return self.adj[v](la)/self.P(la)
+    #def x_H(self,v,la):
+    #    return self.adj[v](la)/self.P(la)
         
-    def tail_check_lower(self,v=None,k0=1):
-        if v==None:
-            v=self.root
-        H0=self.H.copy()
-        add_path(H0,k0,v)
-        la0=lambda_G(H0)
+    def tail_functions(self,v,print_mode=False):
         la_infty,Ga_infty=self.ev_infty(v)
-        print("the relevant interval for \u03BB: I=({:.4f},{:.4f})".format(la0,la_infty))
-        
+        r_infty=r(la_infty)
         S=sum(self.adj[v])/self.P
         T=sum(entry^2 for entry in self.adj[v])/self.P^2
         Sh=S(t+1/t)
         Th=T(t+1/t)
-        print('S(\u03BB)=',S)
-        #print(latex(S))
-        print('S^(t)=',Sh)
-        #print(latex(Sh))
-        print()
-        print('T(\u03BB)=',T)
-        #print(latex(T))        
-        print('T^(t)=',Th)
-        #print(latex(Th))        
-        print()
-        
         Jh=(Sh+t/(t-1))^2/(Th+t^2/(t^2-1))
-        print('J^(t)=',Jh)        
-        #print(latex(Jh))
-        print('J(\u03BB)=J^(r(\u03BB)) should be monotone increasing on I:')            
-        plot(Jh(r(x)),la0,la_infty).show()
+        if print_mode:
+            print("v={}".format(v))
+            print('P(\u03BB)=',self.P,'=',self.P.factor())
+            print()
+            print('P(\u03BB)*B_u,v(\u03BB):')
+            for u in range(self.n):
+                print('u={}: '.format(u),self.adj[u,v],'=',self.adj[u,v].factor())
+            print()
+            print('S(\u03BB)=',S)
+            print('S-hat(t)=S(t+1/t)=',Sh)
+            print()
+            print('T(\u03BB)=',T)
+            print('T-hat(t)=T(t+1/t)=',Th)
+            print()
+            print('J-hat(t)=',Jh)        
+            print()
+            
+        return la_infty,Ga_infty,r_infty,S,T,Sh,Th,Jh
+
+    # checks the conditions of Lemma 7.5
+    def tail_check_lower(self,v,k0=1,show_plots=True):
+        la_infty,Ga_infty,r_infty,S,T,Sh,Th,Jh=self.tail_functions(v,True)
         
-        #cond2_csiki=Th/(Sh+t/(t-1))
-        #print(cond2_csiki)
+        # instead, we may check that 
+        # 1) the derivative of J at la_infty is positive
+        # 2) f(la_infty)>0
+        # then look for k for which these hold for la_0 as well
         
-        cond2=(Th+1)*t-(Sh+t/(t-1))
-        print('f^(t)=(T^(t)+1)t-S^(t)-t/(t-1)=',cond2)
-        print('f(\u03BB)=f^(r(\u03BB)) should be positive on I:')
-        plot([cond2(r(x))],la0,la_infty).show()
-        #fun2=(Th+1)/(Sh+t/(t-1))-1/t
-        #plot([fun2(r(x))],la0,la_infty).show()
+        H0=self.H.copy()
+        add_path(H0,k0,v)
+        la0=lambda_G(H0)
+        r0=r(la0)
+
+        #print("the relevant interval for \u03BB:          I=({:.4f},{:.4f})".format(la0,la_infty))
+        #print("the relevant interval for t=r(\u03BB):  r(I)=({:.4f},{:.4f})".format(r0,r_infty))
+        #print()
+        
+        # cond (i)
+        cond1=is_monotone(Jh,r0,r_infty)
+        print('condition (i): J(\u03BB)=J-hat(r(\u03BB)) should be monotone increasing on ({:.4f},{:.4f}):'.format(la0,la_infty),cond1)            
+        if show_plots:
+            plot(Jh(r(x)),la0,la_infty).show()
+                        
+        # cond (ii)
+        fh=(Th+1)*t-(Sh+t/(t-1))
+        #print('f-hat(t)=',fh)
+        cond2=is_positive(fh,r0,r_infty)
+        print('condition (ii): f(\u03BB)=f-hat(r(\u03BB)) should be positive on ({:.4f},{:.4f}):'.format(la0,la_infty),cond2)
+        if show_plots:
+            plot(fh(r(x)),la0,la_infty).show()
+            
+    # checks the conditions of Theorem 8.1
+    def tail_check_upper(self,v=None,par=(0,0,0),k_limit=10,show_plots=True,eps=1e-8):
+        if v==None:
+            v=self.n-1
+        la_infty,Ga_infty,r_infty,S,T,Sh,Th,Jh=self.tail_functions(v,True)
+        
+        lap,lapp,c=par
+        if lap==0:
+            lapp=eps+find_root(self.adj[self.root,v]-self.adj[v,v],la_infty,la_infty+4)
+            lap=eps+find_root((S+1)^2/(T+1)-Ga_infty,la_infty,lapp)
+            rp=r(lap)
+            fun=lambda x: (S(la_infty)+1+x)^2/(T(la_infty)+1+x^2)-Ga_infty
+            c=1 if fun(1)>=0 else eps+find_root(fun,1,16)
+            print("setting  \u03BB'={:.5f}  \u03BB''={:.5f}  c={:.5f}".format(lap,lapp,c))  
+        rp=r(lap)
+
+        # cond (i)
+        val=2*la_infty+3
+        print("condition (i): {:.4f} > {:.4f}  --> {}".format(val,Ga_infty,val>Ga_infty))
+
+        # cond (ii)
+        cond2=is_monotone(Jh,r_infty,rp)
+        print("condition (ii): J(\u03BB)=J-hat(r(\u03BB)) should be monotone increasing on ({:.4f},{:.4f}): {}".format(la_infty,lap,cond2))
+        if show_plots:
+            plot([Jh(r(x)),Ga_infty],la_infty,lap).show()
+
+        # cond (iii)
+        fun3=(S+1)^2/(T+1)
+        cond3=fun3(lap)>Ga_infty and fun3(lapp)>=Ga_infty and is_positive(fun3-Ga_infty,lap,lapp)
+        print("condition (iii):",cond3)
+        if show_plots:
+            plot([fun3(x),Ga_infty],lap,lapp).show()
+
+        # cond (iv)
+        fun4=self.adj[v,v]-self.adj[self.root,v]
+        cond4=fun4(lapp)>0
+        print("condition (iv):",cond4)
+        if show_plots:
+            plot(fun4(x),lapp,lapp+1).show()
+        
+        # cond (v)
+        val=self.adj[v,v](lap)/self.P(lap)
+        print("condition (v): {:.4f} > {:.4f} --> {}".format(val,1/r_infty,val>1/r_infty))
+
+        # cond (vi) and (vii)
+        fun6=(Sh+1+c)^2/(Th+1+c^2)        
+        cond6=is_positive(fun6-Ga_infty,r_infty,rp)
+        fun7=(Sh+1+c*t)^2/(Th+1+(c*t)^2)
+        cond7=is_positive(fun7-Ga_infty,r_infty,rp)
+        print("condition (vi):",cond6)
+        print("condition (vii):",cond7)        
+        if show_plots:
+            plot([fun6(x),fun7(x),Ga_infty],r_infty,rp).show()
+        
+        # cond (viii)
+        for k in range(2,k_limit+1):
+            fun8=(2*(Sh+t/(t-1))*(1-(t+1)/(t-1)*t^(-k))/Ga_infty-2*k*t^(-k))/(t^3/(t^2-1))
+            if fun8(r_infty)>c and fun8(rp)>c:
+                cond8=is_positive(fun8-c,r_infty,rp)
+                print("condition (viii):",cond8,"for k={}".format(k))
+                if show_plots:
+                    plot([fun8(x),c],r_infty,rp).show()
+                return
+        print("condition (viii) failed up to k=",k_limit)        
         
         
 # for showing that the tail must be a path
