@@ -159,7 +159,12 @@ def check_coeffs(pol,t0=0):
 
 # for a polynomial pol, checks whether pol>0 on the interval (t0,t1)    
 def is_positive_pol(pol,t0,t1):
-    if pol(0.5*(t0+t1))<=0:
+    tt=0
+    if t0 == -np.inf:
+        tt= 0 if t1 == np.inf else t1-1        
+    else:    
+        tt= t0+1 if t1 == np.inf else 0.5*(t0+t1)
+    if pol(tt)<=0:
         return False
     polR=0.+pol
     rts=polR.roots()
@@ -565,10 +570,10 @@ class Kernel:
 
         # cond (iv)
         fun4=self.adj[v,v]-self.adj[self.root,v]
-        cond4=fun4(lapp)>0
+        cond4=fun4(lapp)>0 and is_positive_pol(fun4,lapp,np.inf)
         print("condition (iv):",cond4)
         if show_plots:
-            plot(fun4(x),lapp,lapp+1).show()
+            plot(fun4(x)/self.P(x),lapp,lapp+5).show()
         
         # cond (v)
         val=self.adj[v,v](lap)/self.P(lap)
