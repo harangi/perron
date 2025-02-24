@@ -543,7 +543,9 @@ class Kernel:
         
         lap,lapp,c=par
         if lap==0:
-            lapp=eps+find_root(self.adj[self.root,v]-self.adj[v,v],la_infty,la_infty+4)
+            # old lapp:
+            # old_lapp=eps+find_root(self.adj[self.root,v]-self.adj[v,v],la_infty,la_infty+4)
+            lapp=eps+find_root(self.adj[self.root,v]-self.P,la_infty,la_infty+4)
             lap=eps+find_root((S+1)^2/(T+1)-Ga_infty,la_infty,lapp)
             rp=r(lap)
             fun=lambda x: (S(la_infty)+1+x)^2/(T(la_infty)+1+x^2)-Ga_infty
@@ -553,31 +555,38 @@ class Kernel:
 
         # cond (i)
         val=2*la_infty+3
-        print("condition (i): {:.4f} > {:.4f}  --> {}".format(val,Ga_infty,val>Ga_infty))
+        cond1=val>Ga_infty
+        print("condition (i): {:.4f} > {:.4f}  --> {}".format(val,Ga_infty,cond1))
 
+        # old cond (iv), now new version is cond (ii)
+        #fun4=self.adj[v,v]-self.adj[self.root,v]
+        #cond4=fun4(lapp)>0 and is_positive_pol(fun4,lapp,np.inf)
+        #print("condition (iv):",cond4)
+        #if show_plots:
+        #    plot(fun4(x)/self.P(x),lapp,lapp+5).show()
+        
         # cond (ii)
-        cond2=is_monotone(Jh,r_infty,rp)
-        print("condition (ii): J(\u03BB)=J-hat(r(\u03BB)) should be monotone increasing on ({:.4f},{:.4f}): {}".format(la_infty,lap,cond2))
-        if show_plots:
-            plot([Jh(r(x)),Ga_infty],la_infty,lap).show()
+        val=self.adj[self.root,v](lapp)/self.P(lapp)
+        cond2=val<=1
+        print("condition (ii): {:.4f} <= 1  --> {}".format(val,cond2))
 
         # cond (iii)
-        fun3=(S+1)^2/(T+1)
-        cond3=fun3(lap)>Ga_infty and fun3(lapp)>=Ga_infty and is_positive(fun3-Ga_infty,lap,lapp)
-        print("condition (iii):",cond3)
-        if show_plots:
-            plot([fun3(x),Ga_infty],lap,lapp).show()
+        val=self.adj[v,v](lap)/self.P(lap)
+        cond3=val>1/r_infty
+        print("condition (iii): {:.4f} > {:.4f} --> {}".format(val,1/r_infty,cond3))
 
         # cond (iv)
-        fun4=self.adj[v,v]-self.adj[self.root,v]
-        cond4=fun4(lapp)>0 and is_positive_pol(fun4,lapp,np.inf)
+        fun4=(S+1)^2/(T+1)
+        cond4=fun4(lap)>Ga_infty and fun4(lapp)>Ga_infty and is_positive(fun4-Ga_infty,lap,lapp)
         print("condition (iv):",cond4)
         if show_plots:
-            plot(fun4(x)/self.P(x),lapp,lapp+5).show()
-        
+            plot([fun4(x),Ga_infty],lap,lapp).show()
+
         # cond (v)
-        val=self.adj[v,v](lap)/self.P(lap)
-        print("condition (v): {:.4f} > {:.4f} --> {}".format(val,1/r_infty,val>1/r_infty))
+        cond5=is_monotone(Jh,r_infty,rp)
+        print("condition (v): J(\u03BB)=J-hat(r(\u03BB)) should be monotone increasing on ({:.4f},{:.4f}): {}".format(la_infty,lap,cond5))
+        if show_plots:
+            plot([Jh(r(x)),Ga_infty],la_infty,lap).show()
 
         # cond (vi) and (vii)
         fun6=(Sh+1+c)^2/(Th+1+c^2)        
